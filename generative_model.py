@@ -45,11 +45,11 @@ class Sampling(layers.Layer):
         dim = tf.shape(z_mean)[1]
         epsilon = tf.keras.backend.random_normal(shape=(batch, dim))
         return z_mean + tf.exp(0.5 * z_log_var) * epsilon 
-    
+        
 
 def encoder_network_large(input_shape, latent_dim=100):
     input_img = layers.Input(shape=input_shape)
-    x = layers.Dropout(0.1, input_shape=input_shape)(input_img)
+    x = layers.Dropout(0.2, input_shape=input_shape)(input_img)
     x = layers.Conv2D(32, 4, strides=(2, 2))(x)
     x = layers.BatchNormalization()(x)
     x = layers.LeakyReLU()(x)
@@ -63,10 +63,6 @@ def encoder_network_large(input_shape, latent_dim=100):
     x = layers.LeakyReLU()(x)
     
     x = layers.Conv2D(256, 4, strides=(2, 2))(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.LeakyReLU()(x)
-    
-    x = layers.Conv2D(512, 4, strides=(2, 2))(x)
     x = layers.BatchNormalization()(x)
     x = layers.LeakyReLU()(x)
 
@@ -101,25 +97,19 @@ def decoder_network_large(latent_dim=100):
     x = layers.LeakyReLU()(x)
 
     x = layers.UpSampling2D((2, 2), interpolation='nearest')(x)
-    x = layers.Conv2D(16, 3, strides=1, padding='same')(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.LeakyReLU()(x)
-
-    x = layers.UpSampling2D((2, 2), interpolation='nearest')(x)
     x = layers.Conv2D(1, 3, strides=1, padding='same', activation='sigmoid')(x)
 
     decoder = keras.Model(decoder_input, x)
     return decoder
 
-
 def build_encoder_decoder_large(latent_dim = 5):
-    input_shape = (128,128,1)
+    input_shape = (28,28,1)
     encoder, z_mean, z_log_var = encoder_network_large(input_shape, latent_dim)
     decoder = decoder_network_large(latent_dim)
     return encoder, decoder
 
 
-def build_encoder_decoder_small(latent_dim=20):
+def build_encoder_decoder_small_v1(latent_dim=20):
     # Encoder
     input_layer = layers.Input(shape=(28, 28, 1))
     x = layers.Dropout(0.1, input_shape=(28, 28, 1))(input_layer)
@@ -153,6 +143,34 @@ def build_encoder_decoder_small(latent_dim=20):
     decoder = keras.Model(latent_inputs, decoder_outputs, name="decoder")
 
     return encoder, decoder
+
+
+def build_encoder_decoder_small(latent_dim=20):
+    # Encoder
+    input_layer = layers.Input(shape=(28, 28, 1))
+    x = layers.Dropout(0.1, input_shape=(28, 28, 1))(input_layer)
+    x = layers.Conv2D(32, 3, activation="relu", strides=2, padding="same")(x)
+    x = layers.Conv2D(64, 3, activation="relu", strides=2, padding="same")(x)
+    x = layers.Flatten()(x)
+    x = layers.Dense(16, activation="relu")(x)
+    x = layers.Dense(latent_dim)(x)
+
+    z_mean = layers.Dense(latent_dim, name="z_mean")(x)
+    z_log_var = layers.Dense(latent_dim, name="z_log_var")(x)
+    z = Sampling()([z_mean, z_log_var])
+    encoder = keras.Model(input_layer, [z_mean, z_log_var, z], name="encoder")
+
+    # Decoder
+    latent_inputs = keras.Input(shape=(latent_dim,))
+    x = layers.Dense(7 * 7 * 64, activation="relu")(latent_inputs)
+    x = layers.Reshape((7, 7, 64))(x)
+    x = layers.Conv2DTranspose(64, 3, activation="relu", strides=2, padding="same")(x)
+    x = layers.Conv2DTranspose(32, 3, activation="relu", strides=2, padding="same")(x)
+    decoder_outputs = layers.Conv2DTranspose(1, 3, activation="sigmoid", padding="same")(x)
+
+    decoder = keras.Model(latent_inputs, decoder_outputs, name="decoder")
+
+    return encoder, decoder
         
 
 def kl_loss_fn(z_mean, z_log_var, kl_weighting):
@@ -164,7 +182,7 @@ def kl_loss_fn(z_mean, z_log_var, kl_weighting):
     return kl_weighting * kl
 
 
-def reconstruction_loss_fn(x, t_decoded):
+def reconstruction_loss_fn_v1(x, t_decoded):
     # binary_crossentropy() returns result of dim (n_in_batch, pixels)
     # take the sum across the 784 pixels
     # take the mean across the batch
@@ -173,6 +191,18 @@ def reconstruction_loss_fn(x, t_decoded):
     # Note that mean_absolute_error loss also gives good results
     reconstruction_loss = tf.reduce_mean(tf.reduce_sum(
         keras.losses.binary_crossentropy(data, reconstruction), axis=(1,2)))
+    return reconstruction_loss
+
+
+def reconstruction_loss_fn(x, t_decoded):
+    # mean_absolute_error() returns result of dim (n_in_batch, pixels)
+    # take the sum across the 64x64x3 pixels
+    # take the mean across the batch
+    data = x
+    reconstruction = t_decoded
+    # note that binary_crossentropy loss also gives good results
+    reconstruction_loss = tf.reduce_mean(tf.reduce_sum(
+        keras.losses.mean_absolute_error(data, reconstruction), axis=(1, 2)))
     return reconstruction_loss
 
 
