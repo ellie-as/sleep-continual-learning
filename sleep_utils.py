@@ -135,13 +135,12 @@ def train_with_schedule_multiple_seeds(seeds, total_eps=100, num_cycles=20, star
                                    start_fraction_rem=start_fraction_rem,
                                    end_fraction_rem=end_fraction_rem,
                                    use_initial_weights=use_initial_weights,
-                                   latent_dim = latent_dim,
-                                   lr = lr,
+                                   latent_dim=latent_dim,
+                                   lr=lr,
                                    inverted=inverted,
                                    seed=s,
                                    num=num,
                                    continue_training=continue_training) for s in seeds]
-
 
     fig = plot_mean_recons_over_time(results, num_cycles)
     pdf.savefig(fig, bbox_inches = "tight")
@@ -196,7 +195,7 @@ def plot_error_dists(vae, mnist_digits, fmnist_digits):
     n, bins, patches = plt.hist(mnist_recons, 25, density=True, facecolor='black', alpha=0.5, label='Dataset 1')
     n, bins, patches = plt.hist(fmnist_recons, 25, density=True, facecolor='blue', alpha=0.5, label='Dataset 2')
     plt.xlabel('Reconstruction error')
-    plt.ylabel('Probability')
+    plt.ylabel('Probability density')
     plt.legend()
     plt.show()
     
