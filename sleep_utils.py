@@ -9,6 +9,7 @@ import matplotlib.backends.backend_pdf
 from generative_model import models_dict
 import matplotlib
 import random
+from datetime import datetime
 
 
 def train_with_schedule(total_eps=100, num_cycles=20, start_fraction_rem=0.2, end_fraction_rem=0.8,
@@ -178,7 +179,7 @@ def prepare_datasets(split_by_digits=False, split_by_inversion=True):
         return x_train_orig, x_test_orig, x_train_inverted, x_test_inverted
 
 
-def plot_error_dists(vae, mnist_digits, fmnist_digits):
+def plot_error_dists(vae, mnist_digits, fmnist_digits, fname='', label1=None, label2=None):
     encs = vae.encoder.predict(mnist_digits)
     decs = vae.decoder.predict(encs[0])
     mnist_recons = tf.reduce_sum(keras.losses.mean_absolute_error(mnist_digits, decs), axis=(1, 2)).numpy().tolist()
@@ -192,11 +193,15 @@ def plot_error_dists(vae, mnist_digits, fmnist_digits):
 
     fig = plt.figure()
 
-    n, bins, patches = plt.hist(mnist_recons, 25, density=True, facecolor='black', alpha=0.5, label='Dataset 1')
-    n, bins, patches = plt.hist(fmnist_recons, 25, density=True, facecolor='blue', alpha=0.5, label='Dataset 2')
+    n, bins, patches = plt.hist(mnist_recons, 25, density=True, facecolor='black', alpha=0.5, 
+                                label=label1 if label1 is not None else 'Dataset 1')
+    n, bins, patches = plt.hist(fmnist_recons, 25, density=True, facecolor='blue', alpha=0.5, 
+                                label=label2 if label2 is not None else 'Dataset 2')
     plt.xlabel('Reconstruction error')
     plt.ylabel('Probability density')
     plt.legend()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    plt.savefig(f'error_dists_{fname}_{timestamp}.png', bbox_inches='tight')
     plt.show()
     
     return mnist_recons, fmnist_recons
